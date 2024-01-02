@@ -16,12 +16,6 @@ This repo is a sample deployment of Microsoft SQL Server 2022 on Azure Kubernete
 | [Step 2](./docs/mssql-deployment.md) | Deploy MS SQL Server 2022 to AKS |
 | [Step 3](./docs/mssql.md) | Download sample database and upload to SQL Server |
 
-- An Azure Subscription
-    - You must have sufficient permissions to deploy resources
-- Visual Studio Code **OR** the Azure Cloud Shell
-
-Full installation guidance and options can be found in the [Installation instructions](install.md).
-
 ## :wave: Contributors
 - [Eric Leonard](https://github.com/erleonard)
 
