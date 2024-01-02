@@ -1,20 +1,16 @@
 <img src="logo.jpg" width="64" />
 
-# :walking: Getting Started
+# :walking: Deploy SQL Server container on AKS
 
-- An Azure Subscription
-    - You must have sufficient permissions to deploy resources
-- Visual Studio Code **OR** the Azure Cloud Shell
+kubectl create secret generic mssql --from-literal=MSSQL_SA_PASSWORD="MyC0m9l&xP@ssw0rd"
+kubectl apply -f ./kubernetes/mssql-pvc.yml
 
-## Install the Azure CLI
-The Azure CLI team maintains a script to run all installation commands in one step. This script is downloaded via curl and piped directly to bash to install the CLI.
+kubectl describe pvc mssql-data
 
-*If you wish to inspect the contents of the script yourself before executing, simply download the script first using curl and inspect it in your favorite text editor.*
+kubectl apply -f ./kubernetes/mssql.yml
 
-```console
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-```
-[Reference](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt#option-1-install-with-one-command)
+kubectl get pod
+kubectl get services
 
 ## Next Step
 :arrow_forward: [aks-deployment](./aks-deployment.md)

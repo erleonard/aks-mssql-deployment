@@ -1,20 +1,26 @@
 <img src="logo.jpg" width="64" />
 
-# :walking: Getting Started
+# :walking: AKS Deployment
 
-- An Azure Subscription
-    - You must have sufficient permissions to deploy resources
-- Visual Studio Code **OR** the Azure Cloud Shell
+PREFIX="mssqldemo"
+LOCATION=eastus
+RESOURCEGROUP="${PREFIX}-aks-rg"
 
-## Install the Azure CLI
-The Azure CLI team maintains a script to run all installation commands in one step. This script is downloaded via curl and piped directly to bash to install the CLI.
+VNET_NAME="${PREFIX}-vnet"
+VNET_AKS_SUBNET_NAME="aks-subnet"
 
-*If you wish to inspect the contents of the script yourself before executing, simply download the script first using curl and inspect it in your favorite text editor.*
+AKS_NAME="${PREFIX}-aks"
+AKS_NODEPOOL_NAME="${PREFIX}-nodepool-rg"
 
-```console
-curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-```
-[Reference](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt#option-1-install-with-one-command)
+az group create --name $RESOURCEGROUP --location $LOCATION
+
+az network vnet create --resource-group $RESOURCEGROUP --name $VNET_NAME --address-prefixes 10.114.0.0/16
+az network vnet subnet create --resource-group $RESOURCEGROUP --vnet-name $VNET_NAME --name $VNET_AKS_SUBNET_NAME --address-prefixes 10.114.2.0/23
+VNET_AKS_SUBNET_ID=$(az network vnet subnet show --resource-group $RESOURCEGROUP --vnet-name $VNET_NAME --name $VNET_AKS_SUBNET_NAME --query id -o tsv)
+
+az aks create -n $AKS_NAME -g $RESOURCEGROUP --location $LOCATION --network-plugin azure --network-plugin-mode overlay --pod-cidr 192.168.0.0/16 --vnet-subnet-id $VNET_AKS_SUBNET_ID
+
+az aks get-credentials --resource-group $RESOURCEGROUP --name $AKS_NAME
 
 ## Next Step
 :arrow_forward: [aks-deployment](./aks-deployment.md)
