@@ -27,4 +27,4 @@ az aks get-credentials --resource-group $RESOURCEGROUP --name $AKS_NAME
 ```
 
 ## Next Step
-:arrow_forward: [aks-deployment](./aks-deployment.md)
+:arrow_forward: [Deploy SQL Server](./mssql-deployment.md)
