@@ -1,11 +1,11 @@
 <h1 align="center">
   <img src="./docs/logo.jpg" alt="logo" width="128" />
   <br>
-  SQL Server 2022 deployment on Azure Kubernetes Services
+  SQL Server deployment on Azure Kubernetes Services
   <br>
 </h1>
 
-This repo is a sample deployment of Microsoft SQL Server 2022 on Azure Kubernetes Services (AKS).
+This repo is a sample deployment of Microsoft SQL Server on Azure Kubernetes Services (AKS).
 
 ## :roller_coaster: Table of Contents
 
