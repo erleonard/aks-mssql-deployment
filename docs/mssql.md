@@ -10,7 +10,7 @@ wget https://github.com/Microsoft/sql-server-samples/releases/download/adventure
 2. Copy sample database to MSSQL POD 
 ```bash
 mssql_podname=$(kubectl get po --output=jsonpath={.items..metadata.name})
-fullpath=${mssql_podname}":/var/opt/mssql/data/AdventureWorks2014.bak"
+fullpath=${mssql_podname}":/var/opt/mssql/data/AdventureWorksLT2022.bak"
 
 kubectl cp AdventureWorksLT2022.bak ${fullpath}
 ```

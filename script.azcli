@@ -1,0 +1,59 @@
+PREFIX="mssqldemo"
+LOCATION=eastus
+RESOURCEGROUP="${PREFIX}-aks-rg"
+
+VNET_NAME="${PREFIX}-vnet"
+VNET_AKS_SUBNET_NAME="aks-subnet"
+
+AKS_NAME="${PREFIX}-aks"
+AKS_NODEPOOL_NAME="${PREFIX}-nodepool-rg"
+
+az group create --name $RESOURCEGROUP --location $LOCATION
+
+az network vnet create --resource-group $RESOURCEGROUP --name $VNET_NAME --address-prefixes 10.114.0.0/16
+az network vnet subnet create --resource-group $RESOURCEGROUP --vnet-name $VNET_NAME --name $VNET_AKS_SUBNET_NAME --address-prefixes 10.114.2.0/23
+VNET_AKS_SUBNET_ID=$(az network vnet subnet show --resource-group $RESOURCEGROUP --vnet-name $VNET_NAME --name $VNET_AKS_SUBNET_NAME --query id -o tsv)
+
+az aks create -n $AKS_NAME -g $RESOURCEGROUP --location $LOCATION --node-vm-size Standard_B4ms --network-plugin azure --network-plugin-mode overlay --pod-cidr 192.168.0.0/16 --vnet-subnet-id $VNET_AKS_SUBNET_ID --generate-ssh-keys
+
+# Create backup vault
+VAULT_NAME="${PREFIX}-vault"
+az dataprotection backup-vault create --resource-group $RESOURCEGROUP --vault-name $VAULT_NAME --type SystemAssigned --storage-settings datastore-type="VaultStore" type="LocallyRedundant"
+az dataprotection backup-policy get-default-policy-template --datasource-type AzureKubernetesService > akspolicy.json
+az dataprotection backup-policy create -g $RESOURCEGROUP --vault-name $VAULT_NAME -n akspolicy --policy akspolicy.json
+
+# remove soft delete protection
+BACKUPVAULT_ID=$(az dataprotection backup-vault list --resource-group $RESOURCEGROUP --query [].id --output tsv)
+az dataprotection backup-vault update --id $BACKUPVAULT_ID --soft-delete-state Off
+
+# Create storage account and backup container
+STORAGE_NAME="$PREFIX"backup"$RANDOM"
+CONTAINER_NAME="aksbackups"
+az storage account create -g $RESOURCEGROUP --name $STORAGE_NAME --sku Standard_LRS
+az storage container create --name $CONTAINER_NAME --account-name $STORAGE_NAME --auth-mode login
+
+# Install backup extension
+SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+az k8s-extension create -g $RESOURCEGROUP --cluster-name $AKS_NAME --name azure-aks-backup --extension-type microsoft.dataprotection.kubernetes --scope cluster --cluster-type managedClusters --release-train stable --configuration-settings blobContainer=$CONTAINER_NAME storageAccount=$STORAGE_NAME storageAccountResourceGroup=$RESOURCEGROUP storageAccountSubscriptionId=$SUBSCRIPTION_ID
+az k8s-extension show -g $RESOURCEGROUP --cluster-name $AKS_NAME --name azure-aks-backup --cluster-type managedClusters --output table
+
+
+BACKUP_PRINCIPALID=$(az k8s-extension show --name azure-aks-backup --resource-group $RESOURCEGROUP --cluster-name $AKS_NAME --cluster-type managedClusters --query aksAssignedIdentity.principalId --output tsv)
+az role assignment create --assignee-object-id $BACKUP_PRINCIPALID --role 'Storage Account Contributor' --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCEGROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_NAME
+az aks trustedaccess rolebinding create --resource-group $RESOURCEGROUP --cluster-name $AKS_NAME --name backupvaultrolebinding --roles Microsoft.DataProtection/backupVaults/backup-operator --source-resource-id $BACKUPVAULT_ID
+#az aks trustedaccess rolebinding show --cluster-name $AKS_NAME --resource-group $RESOURCEGROUP --name backupvaultrolebinding
+#az aks trustedaccess rolebinding list --cluster-name $AKS_NAME --resource-group $RESOURCEGROUP
+
+AKS_ID=$(az aks show --resource-group $RESOURCEGROUP --name $AKS_NAME --query id --output tsv)
+BACKUPPOLICY_ID=$(az dataprotection backup-policy show --name akspolicy --resource-group $RESOURCEGROUP --vault-name $VAULT_NAME --query id --output tsv)
+az dataprotection backup-instance initialize-backupconfig --datasource-type AzureKubernetesService > backupconfig.json
+#storage account backup contributor
+az role assignment create --assignee-object-id $BACKUP_PRINCIPALID --role 'Storage Account Backup Contributor' --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCEGROUP/providers/Microsoft.Storage/storageAccounts/$STORAGE_NAME
+az dataprotection backup-instance initialize --datasource-id $AKS_ID --datasource-location $LOCATION --datasource-type AzureKubernetesService --policy-id $BACKUPPOLICY_ID --backup-configuration backupconfig.json --friendly-name aksbackup --snapshot-resource-group-name $RESOURCEGROUP
+az dataprotection backup-instance initialize --datasource-type AzureKubernetesService --datasource-location $LOCATION --policy-id $BACKUPPOLICY_ID --datasource-id $AKS_ID --friendly-name "$PREFIX"-backup --backup-configuration backupconfig.json
+az dataprotection backup-instance create --backup-instance backupconfig.json --resource-group $RESOURCEGROUP --vault-name $VAULT_NAME
+####
+USE [master]
+RESTORE DATABASE [AdventureWorksLT2022] FROM  DISK = N'/var/opt/mssql/data/AdventureWorksLT2022.bak' WITH  FILE = 1,  MOVE N'AdventureWorksLT2022_Data' TO N'/var/opt/mssql/data/AdventureWorksLT2022.mdf',  MOVE N'AdventureWorksLT2022_Log' TO N'/var/opt/mssql/data/AdventureWorksLT2022_log.ldf',  NOUNLOAD,  STATS = 5
+
+/subscriptions/2c74b57d-1a42-4dc9-91de-2ef61991d80c/resourceGroups/mssqldemo-aks-rg/providers/Microsoft.DataProtection/backupVaults/mssqldemo-vault
